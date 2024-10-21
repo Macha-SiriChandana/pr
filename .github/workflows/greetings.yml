@@ -1,7 +1,9 @@
-name: Greet Issues
+name: Greet Issues and Pull Requests
 
 on:
   issues:
+    types: [opened]
+  pull_request:
     types: [opened]
 
 jobs:
@@ -9,39 +11,66 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v3  # This should automatically be on Node 20
+        uses: actions/checkout@v3
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3  # This should also be compatible with Node 20
+        uses: actions/setup-node@v3
         with:
           node-version: '20'
 
-      - name: Handle Issue Greetings
-        uses: actions/github-script@v6  # Update to a compatible version
+      - name: Handle Greetings for Issues and PRs
+        uses: actions/github-script@v6
         with:
           script: |
-            const issue = context.payload.issue;
-            if (!issue) {
-              console.error("No issue context available.");
-              return;
-            }
+            const isIssue = !!context.payload.issue;
+            const isPullRequest = !!context.payload.pull_request;
+            let number, title, user;
 
-            const user = issue.user.login;
-            const message = `👋 Hello @${user}! Thank you for opening this issue titled "**${issue.title}**"! We're excited to see your contribution and a maintainer will get back to you shortly 😊! \n\nPlease ensure the following:\n1. Be respectful. \n2. Follow the contribution guidelines.\n\nHappy coding! 🚀`;
+            if (isIssue) {
+              const issue = context.payload.issue;
+              user = issue.user.login;
+              number = issue.number;
+              title = issue.title;
+              const message = `👋 Hello @${user}! Thank you for opening this issue titled "**${title}**"! We're excited to see your contribution and a maintainer will get back to you shortly 😊! \n\nPlease ensure the following:\n1. Be respectful. \n2. Follow the contribution guidelines.\n\nHappy coding! 🚀`;
 
-            await github.rest.issues.createComment({
-              ...context.repo,
-              issue_number: issue.number,
-              body: message
-            });
-
-            // Request more information if the issue body is empty
-            const issueBody = issue.body || '';
-            if (issueBody.trim().length === 0) {
-              const requestInfoMessage = `🧐 We would appreciate it if you could provide us with more info about this issue, @${user}! 🤔`;
               await github.rest.issues.createComment({
                 ...context.repo,
-                issue_number: issue.number,
-                body: requestInfoMessage
+                issue_number: number,
+                body: message
               });
+
+              const issueBody = issue.body || '';
+              if (issueBody.trim().length === 0) {
+                const requestInfoMessage = `🧐 We would appreciate it if you could provide us with more info about this issue, @${user}! 🤔`;
+                await github.rest.issues.createComment({
+                  ...context.repo,
+                  issue_number: number,
+                  body: requestInfoMessage
+                });
+              }
             }
+
+            if (isPullRequest) {
+              const pullRequest = context.payload.pull_request;
+              user = pullRequest.user.login;
+              number = pullRequest.number;
+              title = pullRequest.title;
+              const message = `👋 Hello @${user}! Thank you for opening this pull request titled "**${title}**"! A maintainer will review your changes soon. Stay tuned! 😊`;
+
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number: number,
+                body: message
+              });
+
+              const prBody = pullRequest.body || '';
+              if (prBody.trim().length === 0) {
+                const requestInfoMessage = `🧐 We would appreciate it if you could provide more details about this pull request, @${user}! 🤔`;
+                await github.rest.issues.createComment({
+                  ...context.repo,
+                  issue_number: number,
+                  body: requestInfoMessage
+                });
+              }
+            }
+
